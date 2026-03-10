@@ -89,6 +89,88 @@ An agent-driven tutoring system template for long-term study, role-based instruc
 4. 每节课结束后执行课后更新。
 5. 新开对话时，始终先读取 `teacher/` 状态文件再继续。
 
+### 多课程分支记忆（实验）
+
+仓库附带了可选脚本 `tools/branch_memory.py`，用于模拟类似 git 的“课程分支 + 全局主干”记忆管理，解决多课程并行学习时互相覆盖的问题。
+
+#### 设计目标
+
+- **课程隔离**：每门课有独立分支记忆，避免 A 课程的阶段性结论污染 B 课程。
+- **全局收敛**：只有跨课程可复用、且已被重复验证的偏好/特征，才进入全局记忆。
+- **可追溯更新**：每次合并保留会话来源，便于后续回滚和人工复核。
+
+#### 存储结构
+
+- `teacher/memory/courses/<course>/memory.json`：课程分支记忆（例如线代、概率、深度学习）
+- `teacher/memory/global_candidates.json`：待合并候选池
+- `teacher/memory/global_memory.json`：全局主干记忆（稳定事实）
+- `teacher/memory/merge_policy.json`：合并门槛策略（置信度、出现次数等）
+
+#### 命令说明
+
+- `init`：初始化目录和默认策略
+- `add-course-note`：写入课程分支中的局部结论
+- `add-global-candidate`：将某课程观察到的候选事实提交到候选池
+- `merge`：按策略将候选事实合并到全局主干
+
+#### 推荐工作流（课后更新版）
+
+1. 先更新课程分支（`add-course-note`），记录本课专属变化。
+2. 再提交候选全局记忆（`add-global-candidate`），只提交可能跨课复用的变化。
+3. 周期性执行合并（`merge`），把“重复出现 + 置信度达标”的候选写入全局主干。
+4. 在正式授课前读取 `global_memory.json`，统一三位老师的互动策略。
+
+#### 示例
+
+```bash
+python tools/branch_memory.py init --base-dir teacher/memory
+python tools/branch_memory.py add-course-note --base-dir teacher/memory \
+  --course linear_algebra --key proof_rigor --value "证明细节耐心提升"
+python tools/branch_memory.py add-global-candidate --base-dir teacher/memory \
+  --course linear_algebra --key pacing_preference --value "先例子再定义" \
+  --confidence 0.72 --session s001
+python tools/branch_memory.py add-global-candidate --base-dir teacher/memory \
+  --course probability --key pacing_preference --value "先例子再定义" \
+  --confidence 0.75 --session s002
+python tools/branch_memory.py merge --base-dir teacher/memory
+```
+
+#### 端到端流程模拟（从输入书籍到结课）
+
+如果你想快速演示完整生命周期，可直接运行：
+
+```bash
+python tools/branch_memory.py simulate-flow --base-dir teacher/memory_demo --reset
+```
+
+该命令会自动执行以下流程：
+
+1. 初始化记忆存储与合并策略。
+2. 输入两本教材并创建两门课程分支。
+3. 模拟多次课后更新（课程记忆 + 全局候选记忆）。
+4. 执行一次全局合并，沉淀跨课程稳定结论。
+5. 将两门课程标记为结课，并输出过程摘要。
+
+模拟后可查看：
+
+- `teacher/memory_demo/learning_journal.json`：完整时间线（便于排查更新问题）
+- `teacher/memory_demo/global_memory.json`：最终全局记忆
+- `teacher/memory_demo/courses/*/meta.json`：课程状态（active/completed）
+
+#### 使用过程中的更新建议（重要）
+
+- **策略升级**：当你希望“更保守地合并”，直接提高 `merge_policy.json` 中的 `min_confidence` 和 `min_occurrences`。
+- **课程重构**：课程重命名时，建议先复制旧课程目录，再逐步迁移，避免丢失历史轨迹。
+- **冲突处理**：同一 `key` 出现不同 `value` 时，先不要手动覆盖；可让候选池继续积累，等待下一次自动收敛。
+- **人工复核点**：建议每周查看一次 `global_memory.json`，确认是否出现不该全局化的“短期情绪/偶发偏好”。
+- **回滚策略**：全局记忆误合并时，优先从 `global_memory.json` 删除对应条目，再补充更准确候选并重新 `merge`。
+
+#### 建议命名规范
+
+- `course` 建议使用稳定短 ID：`linear_algebra`、`probability`、`ml_foundation`
+- `key` 建议使用可复用标签：`pacing_preference`、`proof_rigor`、`error_pattern`
+- `session` 建议带日期或序号：`2026-03-10-s01`
+
 ### 自定义建议
 
 - 如果你想修改世界观，优先改 `teacher/learner_profile.md` 和 `teacher/system_detail.md`。
