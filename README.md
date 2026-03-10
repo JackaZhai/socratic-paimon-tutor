@@ -89,6 +89,78 @@ An agent-driven tutoring system template for long-term study, role-based instruc
 4. 每节课结束后执行课后更新。
 5. 新开对话时，始终先读取 `teacher/` 状态文件再继续。
 
+### 多课程分支记忆（当前实现）
+
+> 当前版本采用“课程分支 + 全局主干 + 代码执行管理”。
+
+#### 核心模型
+
+- **课程分支**：每门课程独立维护进度、卡点、材料映射。
+- **全局主干**：仅沉淀跨课程稳定有效的学习偏好与互动策略。
+- **自动路由**：学习者可直接提问，AI 自动选择 `active` 主课程。
+
+#### 关键状态文件
+
+- `teacher/progress.md`：当前主课程与下一步起点。
+- `teacher/course_registry.md`：课程注册表（`active/standby/completed/archived`）。
+- `teacher/system.md`、`teacher/system_detail.md`：执行规则与约束。
+
+#### 书籍与课程映射（多对多）
+
+- `course_id`：课程 ID。
+- `book_id`：书籍 ID。
+- `source_id`：具体素材文件（PDF、Markdown 章节、讲义）。
+
+映射关系：
+
+1. `book_id -> [source_id...]`
+2. `course_id -> [book_id...]`
+
+#### 代码执行管理（强制）
+
+课程管理由 AI 执行代码完成，推荐接口：
+
+- `plan`：预演本次变更（不落盘）。
+- `apply`：执行变更并写回状态文件。
+- `report`：输出 `active` 课程、`visible_sources`、最近变更。
+
+执行后校验：
+
+1. 仅有一个 `active` 课程；
+2. `visible_sources` 属于该课程绑定材料；
+3. 变更已写入课程日志。
+
+#### 课程间书籍屏蔽（代码执行）
+
+- 先按 `active` 课程加载 `visible_sources` 白名单。
+- 非白名单材料默认拦截。
+- 跨课调用时临时放开，答疑后恢复。
+- 课后写回本节实际引用 source。
+
+#### 执行与维护细则（补回）
+
+1. **从输入书籍到结课**
+   - 建课：教材入 `materials/`，建立 `course_id/book_id/source_id` 映射。
+   - 上课：优先在当前 `active` 课程分支推进进度。
+   - 合并：仅将跨课程稳定结论沉淀到全局主干。
+   - 结课：课程标记 `completed`，保留可复用结论。
+2. **冲突处理优先级**
+   - 学习者明确声明 > 系统推断。
+   - 多课程一致观察 > 单课程观察。
+   - 近期高置信结论 > 过期低置信结论。
+3. **运行期维护建议**
+   - 周期审计 `course_registry.md` 与主干结论，清理失效项。
+   - 课程重命名时保留旧映射，避免历史追踪丢失。
+   - 代码执行失败先修复再继续，不跳过校验。
+
+#### 方法参考与致谢
+
+本项目参考吴乐旻在知乎的 AI 家教系统方法讨论（原链接）：
+
+- https://www.zhihu.com/question/8491119502/answer/2012423924563091885?share_code=QWRqInVX3p01&utm_psn=2014634543559222264
+
+说明：这里是方法论层面的参考，不是逐字复刻；具体落地以本项目 `teacher/` 状态文件与系统规则为准。
+
 ### 自定义建议
 
 - 如果你想修改世界观，优先改 `teacher/learner_profile.md` 和 `teacher/system_detail.md`。
