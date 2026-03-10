@@ -160,9 +160,9 @@ An agent-driven tutoring system template for long-term study, role-based instruc
 
 #### 方法参考与致谢
 
-本项目参考吴乐旻在知乎的 AI 家教系统方法讨论（原链接）：
+本项目参考吴乐旻大佬在知乎的 AI 家教系统方法讨论（原链接）：
 
-- https://www.zhihu.com/question/8491119502/answer/2012423924563091885?share_code=QWRqInVX3p01&utm_psn=2014634543559222264
+- https://www.zhihu.com/question/8491119502/answer/2012423924563091885
 
 说明：这里是方法论层面的参考，不是逐字复刻；具体落地以本项目 `teacher/` 状态文件与系统规则为准。
 
