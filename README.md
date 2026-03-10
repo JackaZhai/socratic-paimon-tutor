@@ -89,87 +89,77 @@ An agent-driven tutoring system template for long-term study, role-based instruc
 4. 每节课结束后执行课后更新。
 5. 新开对话时，始终先读取 `teacher/` 状态文件再继续。
 
-### 多课程分支记忆（实验）
+### 多课程分支记忆（当前实现）
 
-仓库附带了可选脚本 `tools/branch_memory.py`，用于模拟类似 git 的“课程分支 + 全局主干”记忆管理，解决多课程并行学习时互相覆盖的问题。
+> 当前版本采用“课程分支 + 全局主干 + 代码执行管理”。
 
-#### 设计目标
+#### 核心模型
 
-- **课程隔离**：每门课有独立分支记忆，避免 A 课程的阶段性结论污染 B 课程。
-- **全局收敛**：只有跨课程可复用、且已被重复验证的偏好/特征，才进入全局记忆。
-- **可追溯更新**：每次合并保留会话来源，便于后续回滚和人工复核。
+- **课程分支**：每门课程独立维护进度、卡点、材料映射。
+- **全局主干**：仅沉淀跨课程稳定有效的学习偏好与互动策略。
+- **自动路由**：学习者可直接提问，AI 自动选择 `active` 主课程。
 
-#### 存储结构
+#### 关键状态文件
 
-- `teacher/memory/courses/<course>/memory.json`：课程分支记忆（例如线代、概率、深度学习）
-- `teacher/memory/global_candidates.json`：待合并候选池
-- `teacher/memory/global_memory.json`：全局主干记忆（稳定事实）
-- `teacher/memory/merge_policy.json`：合并门槛策略（置信度、出现次数等）
+- `teacher/progress.md`：当前主课程与下一步起点。
+- `teacher/course_registry.md`：课程注册表（`active/standby/completed/archived`）。
+- `teacher/system.md`、`teacher/system_detail.md`：执行规则与约束。
 
-#### 命令说明
+#### 书籍与课程映射（多对多）
 
-- `init`：初始化目录和默认策略
-- `add-course-note`：写入课程分支中的局部结论
-- `add-global-candidate`：将某课程观察到的候选事实提交到候选池
-- `merge`：按策略将候选事实合并到全局主干
+- `course_id`：课程 ID。
+- `book_id`：书籍 ID。
+- `source_id`：具体素材文件（PDF、Markdown 章节、讲义）。
 
-#### 推荐工作流（课后更新版）
+映射关系：
 
-1. 先更新课程分支（`add-course-note`），记录本课专属变化。
-2. 再提交候选全局记忆（`add-global-candidate`），只提交可能跨课复用的变化。
-3. 周期性执行合并（`merge`），把“重复出现 + 置信度达标”的候选写入全局主干。
-4. 在正式授课前读取 `global_memory.json`，统一三位老师的互动策略。
+1. `book_id -> [source_id...]`
+2. `course_id -> [book_id...]`
 
-#### 示例
+#### 代码执行管理（强制）
 
-```bash
-python tools/branch_memory.py init --base-dir teacher/memory
-python tools/branch_memory.py add-course-note --base-dir teacher/memory \
-  --course linear_algebra --key proof_rigor --value "证明细节耐心提升"
-python tools/branch_memory.py add-global-candidate --base-dir teacher/memory \
-  --course linear_algebra --key pacing_preference --value "先例子再定义" \
-  --confidence 0.72 --session s001
-python tools/branch_memory.py add-global-candidate --base-dir teacher/memory \
-  --course probability --key pacing_preference --value "先例子再定义" \
-  --confidence 0.75 --session s002
-python tools/branch_memory.py merge --base-dir teacher/memory
-```
+课程管理由 AI 执行代码完成，推荐接口：
 
-#### 端到端流程模拟（从输入书籍到结课）
+- `plan`：预演本次变更（不落盘）。
+- `apply`：执行变更并写回状态文件。
+- `report`：输出 `active` 课程、`visible_sources`、最近变更。
 
-如果你想快速演示完整生命周期，可直接运行：
+执行后校验：
 
-```bash
-python tools/branch_memory.py simulate-flow --base-dir teacher/memory_demo --reset
-```
+1. 仅有一个 `active` 课程；
+2. `visible_sources` 属于该课程绑定材料；
+3. 变更已写入课程日志。
 
-该命令会自动执行以下流程：
+#### 课程间书籍屏蔽（代码执行）
 
-1. 初始化记忆存储与合并策略。
-2. 输入两本教材并创建两门课程分支。
-3. 模拟多次课后更新（课程记忆 + 全局候选记忆）。
-4. 执行一次全局合并，沉淀跨课程稳定结论。
-5. 将两门课程标记为结课，并输出过程摘要。
+- 先按 `active` 课程加载 `visible_sources` 白名单。
+- 非白名单材料默认拦截。
+- 跨课调用时临时放开，答疑后恢复。
+- 课后写回本节实际引用 source。
 
-模拟后可查看：
+#### 执行与维护细则（补回）
 
-- `teacher/memory_demo/learning_journal.json`：完整时间线（便于排查更新问题）
-- `teacher/memory_demo/global_memory.json`：最终全局记忆
-- `teacher/memory_demo/courses/*/meta.json`：课程状态（active/completed）
+1. **从输入书籍到结课**
+   - 建课：教材入 `materials/`，建立 `course_id/book_id/source_id` 映射。
+   - 上课：优先在当前 `active` 课程分支推进进度。
+   - 合并：仅将跨课程稳定结论沉淀到全局主干。
+   - 结课：课程标记 `completed`，保留可复用结论。
+2. **冲突处理优先级**
+   - 学习者明确声明 > 系统推断。
+   - 多课程一致观察 > 单课程观察。
+   - 近期高置信结论 > 过期低置信结论。
+3. **运行期维护建议**
+   - 周期审计 `course_registry.md` 与主干结论，清理失效项。
+   - 课程重命名时保留旧映射，避免历史追踪丢失。
+   - 代码执行失败先修复再继续，不跳过校验。
 
-#### 使用过程中的更新建议（重要）
+#### 方法参考与致谢
 
-- **策略升级**：当你希望“更保守地合并”，直接提高 `merge_policy.json` 中的 `min_confidence` 和 `min_occurrences`。
-- **课程重构**：课程重命名时，建议先复制旧课程目录，再逐步迁移，避免丢失历史轨迹。
-- **冲突处理**：同一 `key` 出现不同 `value` 时，先不要手动覆盖；可让候选池继续积累，等待下一次自动收敛。
-- **人工复核点**：建议每周查看一次 `global_memory.json`，确认是否出现不该全局化的“短期情绪/偶发偏好”。
-- **回滚策略**：全局记忆误合并时，优先从 `global_memory.json` 删除对应条目，再补充更准确候选并重新 `merge`。
+本项目参考吴乐旻大佬在知乎的 AI 家教系统方法讨论（原链接）：
 
-#### 建议命名规范
+- https://www.zhihu.com/question/8491119502/answer/2012423924563091885?share_code=QWRqInVX3p01&utm_psn=2014634543559222264
 
-- `course` 建议使用稳定短 ID：`linear_algebra`、`probability`、`ml_foundation`
-- `key` 建议使用可复用标签：`pacing_preference`、`proof_rigor`、`error_pattern`
-- `session` 建议带日期或序号：`2026-03-10-s01`
+说明：这里是方法论层面的参考，不是逐字复刻；具体落地以本项目 `teacher/` 状态文件与系统规则为准。
 
 ### 自定义建议
 
