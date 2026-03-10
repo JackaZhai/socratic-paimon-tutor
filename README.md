@@ -36,13 +36,18 @@ An agent-driven tutoring system template for long-term study, role-based instruc
 .
 ├── AGENTS.md
 ├── CLAUDE.md
+├── CONTRIBUTING.md
+├── LICENSE
 ├── README.md
 ├── materials/
 │   └── README.md
+├── tools/
+│   └── branch_memory.py
 └── teacher/
     ├── system.md
     ├── system_detail.md
     ├── progress.md
+    ├── course_registry.md
     ├── learner_profile.md
     ├── paimon.md
     ├── ganyu.md
@@ -157,7 +162,7 @@ An agent-driven tutoring system template for long-term study, role-based instruc
 
 本项目参考吴乐旻大佬在知乎的 AI 家教系统方法讨论（原链接）：
 
-- https://www.zhihu.com/question/8491119502/answer/2012423924563091885?share_code=QWRqInVX3p01&utm_psn=2014634543559222264
+- https://www.zhihu.com/question/8491119502/answer/2012423924563091885
 
 说明：这里是方法论层面的参考，不是逐字复刻；具体落地以本项目 `teacher/` 状态文件与系统规则为准。
 
@@ -173,7 +178,7 @@ An agent-driven tutoring system template for long-term study, role-based instruc
 - 这套系统的质量高度依赖 `materials/` 的教材质量。
 - 不建议把角色互动写成恋爱模拟或成人内容。
 - 若要长期使用，建议定期归档 `progress.md` 和群聊日志。
-- 如果你准备公开发布本仓库，建议补充 `LICENSE`、`CONTRIBUTING.md` 和版本发布说明。
+- 如果你准备公开发布本仓库，建议同步维护版本发布说明与变更日志。
 
 ### 贡献
 
@@ -192,7 +197,7 @@ An agent-driven tutoring system template for long-term study, role-based instruc
 
 ### 许可证
 
-当前仓库未附带许可证文件。如果你计划公开分发，请在发布前添加合适的开源许可证。
+本仓库采用 MIT License，详见 `LICENSE`。
 
 ## English
 
@@ -224,13 +229,18 @@ Default assumptions:
 .
 ├── AGENTS.md
 ├── CLAUDE.md
+├── CONTRIBUTING.md
+├── LICENSE
 ├── README.md
 ├── materials/
 │   └── README.md
+├── tools/
+│   └── branch_memory.py
 └── teacher/
     ├── system.md
     ├── system_detail.md
     ├── progress.md
+    ├── course_registry.md
     ├── learner_profile.md
     ├── paimon.md
     ├── ganyu.md
@@ -289,7 +299,7 @@ Please fully take over the tutoring system in this project:
 - System quality depends heavily on the quality and structure of the materials in `materials/`.
 - This template is intended for educational roleplay, not romance simulation or adult content.
 - For long-running use, archive older progress and chat logs regularly.
-- If you plan to publish this repository, add a `LICENSE`, `CONTRIBUTING.md`, and release notes.
+- If you plan to publish this repository, keep release notes/changelog up to date.
 
 ### Contributing
 
@@ -308,4 +318,4 @@ When contributing, try to preserve:
 
 ### License
 
-No license file is included yet. Add an appropriate open-source license before public distribution.
+This repository is licensed under the MIT License. See `LICENSE` for details.
